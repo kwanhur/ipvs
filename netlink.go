@@ -458,6 +458,19 @@ func assembleDestination(attrs []syscall.NetlinkRouteAttr) (*Destination, error)
 		}
 	}
 
+	// parse Address with bytes to IP
+	if d.AddressFamily == 0 && addressBytes != nil {
+		ip := (net.IP)(addressBytes)
+		if ip.To4() != nil {
+			d.AddressFamily = syscall.AF_INET
+		} else {
+			d.AddressFamily = syscall.AF_INET6
+		}
+		d.Address = ip
+
+		return &d, nil
+	}
+
 	// parse Address after parse AddressFamily incase of parseIP error
 	if addressBytes != nil {
 		ip, err := parseIP(addressBytes, d.AddressFamily)
