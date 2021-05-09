@@ -1,8 +1,9 @@
-module github.com/moby/ipvs
+module github.com/kwanhur/ipvs
 
 go 1.13
 
 require (
+	github.com/moby/ipvs v1.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/vishvananda/netlink v1.1.0
