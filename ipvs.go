@@ -10,12 +10,33 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+	"syscall"
 )
 
 const (
 	netlinkRecvSocketsTimeout = 3 * time.Second
 	netlinkSendSocketTimeout  = 30 * time.Second
 )
+
+// IPProto specifies the protocol encapsulated within an IP datagram
+type IPProto uint16
+
+// String return name of the protocol
+func (p IPProto) String() string {
+	switch p {
+	case syscall.IPPROTO_TCP:
+		return "TCP"
+	case syscall.IPPROTO_UDP:
+		return "UDP"
+	}
+
+	return fmt.Sprintf("IP(%d)", p)
+}
+
+// Value return number of the protocol
+func (p IPProto) Value() uint16 {
+	return uint16(p)
+}
 
 // Service defines an IPVS service in its entirety.
 type Service struct {
