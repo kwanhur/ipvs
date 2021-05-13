@@ -42,7 +42,7 @@ func (p IPProto) Value() uint16 {
 type Service struct {
 	// Virtual service address.
 	Address  net.IP
-	Protocol uint16
+	Protocol IPProto
 	Port     uint16
 	FWMark   uint32 // Firewall mark of the service.
 
