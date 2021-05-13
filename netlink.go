@@ -84,7 +84,7 @@ func fillService(s *Service) nl.NetlinkRequestData {
 	if s.FWMark != 0 {
 		nl.NewRtAttrChild(cmdAttr, ipvsSvcAttrFWMark, nl.Uint32Attr(s.FWMark))
 	} else {
-		nl.NewRtAttrChild(cmdAttr, ipvsSvcAttrProtocol, nl.Uint16Attr(s.Protocol))
+		nl.NewRtAttrChild(cmdAttr, ipvsSvcAttrProtocol, nl.Uint16Attr(uint16(s.Protocol)))
 		nl.NewRtAttrChild(cmdAttr, ipvsSvcAttrAddress, rawIPData(s.Address))
 
 		// Port needs to be in network byte order.
@@ -332,7 +332,7 @@ func assembleService(attrs []syscall.NetlinkRouteAttr) (*Service, error) {
 		case ipvsSvcAttrAddressFamily:
 			s.AddressFamily = native.Uint16(attr.Value)
 		case ipvsSvcAttrProtocol:
-			s.Protocol = native.Uint16(attr.Value)
+			s.Protocol = IPProto(native.Uint16(attr.Value))
 		case ipvsSvcAttrAddress:
 			addressBytes = attr.Value
 		case ipvsSvcAttrPort:
