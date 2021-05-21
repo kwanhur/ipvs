@@ -41,6 +41,9 @@ const (
 	ipvsCmdGetInfo
 	ipvsCmdZero
 	ipvsCmdFlush
+	ipvsCmdNewLaddr
+	ipvsCmdDelLaddr
+	ipvsCmdGetLaddr
 )
 
 // Attributes used in the first level of commands
@@ -52,6 +55,7 @@ const (
 	ipvsCmdAttrTimeoutTCP
 	ipvsCmdAttrTimeoutTCPFin
 	ipvsCmdAttrTimeoutUDP
+	ipvsCmdAttrLaddr
 )
 
 // Attributes used to describe an info
@@ -95,6 +99,15 @@ const (
 	ipvsDestAttrAddressFamily
 )
 
+// Attributes used to describe a local address. Used
+// inside nested attribute ipvsCmdAttrLaddr
+const (
+	ipvsLaddrAttrUnspec int = iota
+	ipvsLaddrAttrAddress
+	ipvsLaddrAttrPortConflict
+	ipvsladdrAttrConnections
+)
+
 // IPVS Statistics constants
 
 const (
@@ -131,6 +144,9 @@ const (
 	// ConnectionFlagDirectRoute is used for direct routing
 	// forwarding method.
 	ConnectionFlagDirectRoute = 0x0003
+
+	// ConnectionFlagFullNat is used for fullnat(snat+dnat) forwarding method.
+	ConnectionFlagFullNat = 0x0005
 )
 
 const (
@@ -182,4 +198,7 @@ const (
 
 	// ConnFwdBypass denotes forwarding while bypassing the cache
 	ConnFwdBypass = 0x0004
+
+	// ConnFwdFullNat denotes forwarding via snat+dnat
+	ConnFwdFullNat = 0x0005
 )

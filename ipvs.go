@@ -89,6 +89,13 @@ type Destination struct {
 // DstStats defines IPVS destination (real server) statistics
 type DstStats SvcStats
 
+// LocalAddress defines in IPVS laddr in its entirety
+type LocalAddress struct {
+	Address     net.IP
+	Conflicts   uint64
+	Connections uint32
+}
+
 // Config defines IPVS timeout configuration
 type Config struct {
 	TimeoutTCP    time.Duration
@@ -209,6 +216,18 @@ func (i *Handle) DelDestination(s *Service, d *Destination) error {
 	return i.doCmd(s, d, ipvsCmdDelDest)
 }
 
+// NewLocalAddress creates a new local address in the passed ipvs
+// service which should already be existing in the passed handle.
+func (i *Handle) NewLocalAddress(s *Service, d *LocalAddress) error {
+	return i.doCmd2(s, d, ipvsCmdNewLaddr)
+}
+
+// DelLocalAddress deletes an already existing local address in the
+// passed ipvs service in the passed handle.
+func (i *Handle) DelLocalAddress(s *Service, d *LocalAddress) error {
+	return i.doCmd2(s, d, ipvsCmdDelLaddr)
+}
+
 // GetServices returns an array of services configured on the Node
 func (i *Handle) GetServices() ([]*Service, error) {
 	return i.doGetServicesCmd(nil)
@@ -217,6 +236,11 @@ func (i *Handle) GetServices() ([]*Service, error) {
 // GetDestinations returns an array of Destinations configured for this Service
 func (i *Handle) GetDestinations(s *Service) ([]*Destination, error) {
 	return i.doGetDestinationsCmd(s, nil)
+}
+
+// GetLocalAddresses returns an array of LocalAddress configured for this Service
+func (i *Handle) GetLocalAddresses(s *Service) ([]*LocalAddress, error) {
+	return i.doGetLocalAddressesCmd(s, nil)
 }
 
 // GetService gets details of a specific IPVS services, useful in updating statisics etc.,

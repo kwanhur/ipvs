@@ -124,6 +124,14 @@ func fillDestination(d *Destination) nl.NetlinkRequestData {
 	return cmdAttr
 }
 
+func fillLocalAddress(d *LocalAddress) nl.NetlinkRequestData {
+	cmdAttr := nl.NewRtAttr(ipvsCmdAttrLaddr, nil)
+
+	nl.NewRtAttrChild(cmdAttr, ipvsLaddrAttrAddress, rawIPData(d.Address))
+
+	return cmdAttr
+}
+
 func (i *Handle) doCmdwithResponse(s *Service, d *Destination, cmd uint8) ([][]byte, error) {
 	req := newIPVSRequest(cmd)
 	req.Seq = atomic.AddUint32(&i.seq, 1)
@@ -152,8 +160,42 @@ func (i *Handle) doCmdwithResponse(s *Service, d *Destination, cmd uint8) ([][]b
 	return res, nil
 }
 
+func (i *Handle) doCmdwithResponse2(s *Service, l *LocalAddress, cmd uint8) ([][]byte, error) {
+	req := newIPVSRequest(cmd)
+	req.Seq = atomic.AddUint32(&i.seq, 1)
+
+	if s == nil {
+		req.Flags |= syscall.NLM_F_DUMP                    //Flag to dump all messages
+		req.AddData(nl.NewRtAttr(ipvsCmdAttrService, nil)) //Add a dummy attribute
+	} else {
+		req.AddData(fillService(s))
+	}
+
+	if l == nil {
+		if cmd == ipvsCmdGetLaddr {
+			req.Flags |= syscall.NLM_F_DUMP
+		}
+
+	} else {
+		req.AddData(fillLocalAddress(l))
+	}
+
+	res, err := execute(i.sock, req, 0)
+	if err != nil {
+		return [][]byte{}, err
+	}
+
+	return res, nil
+}
+
 func (i *Handle) doCmd(s *Service, d *Destination, cmd uint8) error {
 	_, err := i.doCmdwithResponse(s, d, cmd)
+
+	return err
+}
+
+func (i *Handle) doCmd2(s *Service, d *LocalAddress, cmd uint8) error {
+	_, err := i.doCmdwithResponse2(s, d, cmd)
 
 	return err
 }
@@ -567,6 +609,84 @@ func (i *Handle) doGetDestinationsCmd(s *Service, d *Destination) ([]*Destinatio
 			return res, err
 		}
 		res = append(res, dest)
+	}
+	return res, nil
+}
+
+// assembleLocalAddress assembles a local address back from a hain of netlink attributes
+func assembleLocalAddress(attrs []syscall.NetlinkRouteAttr, addressFamily uint16)(*LocalAddress, error)  {
+	var addr LocalAddress
+	var addrBytes []byte
+
+	for _, attr := range attrs{
+		attrType := int(attr.Attr.Type)
+		switch attrType {
+		case ipvsLaddrAttrAddress:
+			addrBytes = attr.Value
+		case ipvsLaddrAttrPortConflict:
+			addr.Conflicts = native.Uint64(attr.Value)
+		case ipvsladdrAttrConnections:
+			addr.Connections = native.Uint32(attr.Value)
+		}
+	}
+
+	if addrBytes != nil {
+		ip, err := parseIP(addrBytes, addressFamily)
+		if err != nil {
+			return nil, err
+		}
+		addr.Address = ip
+	}
+
+	return &addr, nil
+}
+
+// parseLocalAddress given a ipvs netlink response this function will respond with a valid local address entry,
+// an error otherwise
+func (i *Handle)parseLocalAddress(msg []byte, addressFamily uint16)(*LocalAddress, error)  {
+	var addr *LocalAddress
+
+	// Remove General header for this message
+	hdr := deserializeGenlMsg(msg)
+	NetLinkAttrs, err := nl.ParseRouteAttr(msg[hdr.Len():])
+	if err != nil {
+		return nil, err
+	}
+	if len(NetLinkAttrs) == 0 {
+		return nil, fmt.Errorf("error no valid netlink message found while parsing local address record")
+	}
+
+	//Now Parse and get IPVS related attributes messages packed in this message.
+	ipvsAttrs, err := nl.ParseRouteAttr(NetLinkAttrs[0].Value)
+	if err != nil {
+		return nil, err
+	}
+
+	//Assemble netlink attributes and create a Destination record
+	addr, err = assembleLocalAddress(ipvsAttrs, addressFamily)
+	if err != nil {
+		return nil, err
+	}
+
+	return addr, nil
+}
+
+// doGetLocalAddressesCmd a wrapper function to be used by GetLocalAddresses and GetLocalAddress(d) apis
+func (i *Handle) doGetLocalAddressesCmd(s *Service, d *LocalAddress) ([]*LocalAddress, error) {
+
+	var res []*LocalAddress
+
+	msgs, err := i.doCmdwithResponse2(s, d, ipvsCmdGetLaddr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, msg := range msgs {
+		addr, err := i.parseLocalAddress(msg, s.AddressFamily)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, addr)
 	}
 	return res, nil
 }
