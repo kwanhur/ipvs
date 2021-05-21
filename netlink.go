@@ -132,6 +132,16 @@ func fillLocalAddress(d *LocalAddress) nl.NetlinkRequestData {
 	return cmdAttr
 }
 
+func fillDaemon(d *Daemon) nl.NetlinkRequestData {
+	cmdAttr := nl.NewRtAttr(ipvsCmdAttrDaemon, nil)
+
+	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrState, nl.Uint32Attr(d.State))
+	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrSyncId, nl.Uint32Attr(d.SyncId))
+	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrMcastIfn, nl.Uint32Attr(d.McastIfn))
+
+	return cmdAttr
+}
+
 func (i *Handle) doCmdwithResponse(s *Service, d *Destination, cmd uint8) ([][]byte, error) {
 	req := newIPVSRequest(cmd)
 	req.Seq = atomic.AddUint32(&i.seq, 1)
@@ -178,6 +188,26 @@ func (i *Handle) doCmdwithResponse2(s *Service, l *LocalAddress, cmd uint8) ([][
 
 	} else {
 		req.AddData(fillLocalAddress(l))
+	}
+
+	res, err := execute(i.sock, req, 0)
+	if err != nil {
+		return [][]byte{}, err
+	}
+
+	return res, nil
+}
+
+
+func (i *Handle) doCmdwithResponse3(d *Daemon) ([][]byte, error) {
+	req := newIPVSRequest(ipvsCmdGetDaemon)
+	req.Seq = atomic.AddUint32(&i.seq, 1)
+
+	if d == nil {
+		req.Flags |= syscall.NLM_F_DUMP                    //Flag to dump all messages
+		req.AddData(nl.NewRtAttr(ipvsCmdAttrDaemon, nil)) //Add a dummy attribute
+	} else {
+		req.AddData(fillDaemon(d))
 	}
 
 	res, err := execute(i.sock, req, 0)
@@ -781,6 +811,76 @@ func (i *Handle) doGetInfoCmd() (*ipvsInfo, error) {
 	}
 
 	return res, nil
+}
+
+
+// parseDaemon given a ipvs netlink response this function will respond with a valid daemon entry, an error otherwise
+func (i *Handle) parseDaemon(msg []byte) (*Daemon, error) {
+	var d Daemon
+
+	hdr := deserializeGenlMsg(msg)
+	attrs, err := nl.ParseRouteAttr(msg[hdr.Len():])
+	if err != nil {
+		return nil, err
+	}
+
+	for _, attr := range attrs {
+		attrType := int(attr.Attr.Type)
+		switch attrType {
+		case ipvsDaemonAttrState:
+			d.State = native.Uint32(attr.Value)
+		case ipvsDaemonAttrSyncId:
+			d.SyncId = native.Uint32(attr.Value)
+		case ipvsDaemonAttrMcastIfn:
+			d.McastIfn = nl.BytesToString(attr.Value)
+		}
+	}
+
+	return &d, nil
+}
+
+// doGetDaemonCmd a wrapper function to be used by GetDaemon
+func (i *Handle) doGetDaemonCmd(d *Daemon) ([]*Daemon, error) {
+	var res []*Daemon
+
+	msgs, err := i.doCmdwithResponse3(d)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, msg := range msgs{
+		daemon, err := i.parseDaemon(msg)
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, daemon)
+	}
+
+	return res, nil
+}
+
+// doNewDaemonCmd a wrapper function to be used by NewDaemon
+func (i *Handle) doNewDaemonCmd(d *Daemon) error {
+	req := newIPVSRequest(ipvsCmdNewDaemon)
+	req.Seq = atomic.AddUint32(&i.seq, 1)
+
+	req.AddData(fillDaemon(d))
+
+	_, err := execute(i.sock, req, 0)
+
+	return err
+}
+
+// doDelDaemonCmd a wrapper function to be used by DelDaemon
+func (i *Handle) doDelDaemonCmd(d *Daemon) error {
+	req := newIPVSRequest(ipvsCmdDelDaemon)
+	req.Seq = atomic.AddUint32(&i.seq, 1)
+
+	req.AddData(fillDaemon(d))
+
+	_, err := execute(i.sock, req, 0)
+
+	return err
 }
 
 // IPVS related netlink message format explained

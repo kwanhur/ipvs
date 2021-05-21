@@ -56,6 +56,18 @@ type Service struct {
 	Stats         SvcStats
 }
 
+// String returns a string representation of a service
+func (svc Service) String() string {
+	switch {
+	case svc.FWMark > 0:
+		return fmt.Sprintf("FMW %d (%s)", svc.FWMark, svc.SchedName)
+	case svc.Address.To4() == nil:
+		return fmt.Sprintf("%v [%v]:%d (%s)", svc.Protocol, svc.Address, svc.Port, svc.SchedName)
+	default:
+		return fmt.Sprintf("%v %v:%d (%s)", svc.Protocol, svc.Address, svc.Port, svc.SchedName)
+	}
+}
+
 // SvcStats defines an IPVS service statistics
 type SvcStats struct {
 	Connections uint32
@@ -119,6 +131,12 @@ type Version struct {
 // String returns a string of IPVS version
 func (v *Version) String() string {
 	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+}
+
+type Daemon struct {
+	State    uint32
+	SyncId   uint32
+	McastIfn string
 }
 
 // Handle provides a namespace specific ipvs handle to program ipvs
@@ -195,6 +213,19 @@ func (i *Handle) DelService(s *Service) error {
 // handle.
 func (i *Handle) Flush() error {
 	_, err := i.doCmdWithoutAttr(ipvsCmdFlush)
+	return err
+}
+
+// ZeroService zero the packet, byte and rate counters of a service in the passed
+// handle.
+func (i *Handle) ZeroService(s *Service) error {
+	return i.doCmd(s, nil, ipvsCmdZero)
+}
+
+// Zero zero the packet, byte and rate counters of services in the passed
+// handle.
+func (i *Handle) Zero() error {
+	_, err := i.doCmdWithoutAttr(ipvsCmdZero)
 	return err
 }
 
@@ -285,4 +316,19 @@ func (i *Handle) GetInfo() (*Info, error) {
 		},
 		ConnTableSize: res.connTableSize,
 	}, nil
+}
+
+// GetDaemons return the current daemon information
+func (i *Handle) GetDaemons()([]*Daemon, error)  {
+	return i.doGetDaemonCmd(nil)
+}
+
+// NewDaemon create a new daemon in the passed handle
+func (i *Handle) NewDaemon(d *Daemon) error  {
+	return i.doNewDaemonCmd(d)
+}
+
+// DelDaemon delete a already existing daemon in the passed handle
+func (i *Handle) DelDaemon(d *Daemon) error  {
+	return i.doDelDaemonCmd(d)
 }

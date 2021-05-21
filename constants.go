@@ -124,6 +124,13 @@ const (
 	ipvsStatsBPSOut
 )
 
+const (
+	ipvsDaemonAttrUnspec int = iota
+	ipvsDaemonAttrState
+	ipvsDaemonAttrMcastIfn
+	ipvsDaemonAttrSyncId
+)
+
 // Destination forwarding methods
 const (
 	// ConnectionFlagFwdmask indicates the mask in the connection
@@ -201,4 +208,15 @@ const (
 
 	// ConnFwdFullNat denotes forwarding via snat+dnat
 	ConnFwdFullNat = 0x0005
+)
+
+const (
+	// daemon in stop state
+	DaemonStateNone = 0x0000
+
+	// daemon in master state
+	DaemonStateMaster = 0x0001
+
+	// daemon in backup state
+	DaemonStateBackup = 0x0002
 )
