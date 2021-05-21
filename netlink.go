@@ -137,7 +137,7 @@ func fillDaemon(d *Daemon) nl.NetlinkRequestData {
 
 	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrState, nl.Uint32Attr(d.State))
 	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrSyncId, nl.Uint32Attr(d.SyncId))
-	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrMcastIfn, nl.Uint32Attr(d.McastIfn))
+	nl.NewRtAttrChild(cmdAttr, ipvsDaemonAttrMcastIfn, nl.ZeroTerminated(d.McastIfn))
 
 	return cmdAttr
 }
